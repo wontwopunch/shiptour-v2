@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>월별 예약</title>
+    <style>
+        /* 메인 컨테이너 스타일 */
+        .main-container {
+            padding-top: 60px;
+            margin: 0 auto;
+            max-width: 1800px;
+            padding: 80px 20px 20px;
+        }
+
+        /* 필터 섹션 스타일 */
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        /* 테이블 스타일 */
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+        }
+
+        .booking-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .booking-table th,
+        .booking-table td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            position: relative;
+        }
+
+        .booking-table th {
+            background-color: #f8f9fa;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            font-weight: 500;
+        }
+
+        /* 수정 가능한 셀 스타일 */
+        .editable-cell input,
+        .editable-cell select {
+            width: 100%;
+            padding: 8px;
+            border: none;
+            background: transparent;
+        }
+
+        .editable-cell:hover {
+            background-color: #f8f9fa;
+        }
+
+        /* 하이라이트된 셀 스타일 */
+        .highlighted {
+            background-color: #fff3cd !important;
+        }
+
+        /* 수정된 행 스타일 */
+        .modified {
+            background-color: #e8f5e9;
+        }
+
+        /* 금액 셀 스타일 */
+        .amount-cell {
+            text-align: right;
+            cursor: pointer;
+        }
+
+        /* 저장 버튼 스타일 */
+        .save-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            display: none;
+            z-index: 1000;
+        }
+
+        .save-button.show {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .save-button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        /* 로딩 스피너 */
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid #ffffff;
+            border-top: 3px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+
+        .highlighted, input.highlighted {
+            background-color: #fff3cd !important;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 요약 정보 스타일 */
+        .summary-info {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .total-profit {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #28a745;
+        }
+
+        /* 알림 메시지 스타일 */
+        .alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            border-radius: 4px;
+            display: none;
+            z-index: 1000;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert.show {
+            display: block;
+            animation: fadeOut 3s forwards;
+        }
+
+        #saveButton {
+            display: block !important;
+        }
+        
+        /* bookings.ejs의 style 태그 안에 추가 */
+
+        /* 테이블 열 너비 스타일 */
+        .booking-table th {
+            white-space: nowrap;
+            min-width: 100px;  /* 기본 최소 너비 */
+        }
+
+        /* 각 컬럼별 최소 너비 지정 */
+        .booking-table th:nth-child(1) { min-width: 120px; }  /* 선박명 */
+        .booking-table th:nth-child(2) { min-width: 100px; }  /* 명단 */
+        .booking-table th:nth-child(3) { min-width: 100px; }  /* 계약일 */
+        .booking-table th:nth-child(4) { min-width: 100px; }  /* 출항일 */
+        .booking-table th:nth-child(5) { min-width: 100px; }  /* 입항일 */
+        .booking-table th:nth-child(6) { min-width: 100px; }  /* 예약자명 */
+        .booking-table th:nth-child(7) { min-width: 100px; }  /* 예약자명2 */
+        .booking-table th:nth-child(8) { min-width: 120px; }  /* 연락처 */
+        .booking-table th:nth-child(9) { min-width: 100px; }  /* 상품 */
+        .booking-table th:nth-child(10) { min-width: 80px; }  /* 총 좌석 */
+        .booking-table th:nth-child(11) { min-width: 80px; }  /* 이코노미 */
+        .booking-table th:nth-child(12) { min-width: 80px; }  /* 비즈니스 */
+        .booking-table th:nth-child(13) { min-width: 80px; }  /* 퍼스트 */
+        .booking-table th:nth-child(14) { min-width: 120px; } /* 독도관광 날짜 */
+        .booking-table th:nth-child(15) { min-width: 120px; } /* 독도관광 인원 */
+        .booking-table th:nth-child(16) { min-width: 120px; } /* 독도관광 시간 */
+        .booking-table th:nth-child(17) { min-width: 100px; } /* 상품내용 */
+        .booking-table th:nth-child(18) { min-width: 100px; } /* 총금액 */
+        .booking-table th:nth-child(19) { min-width: 100px; } /* 계약금 */
+        .booking-table th:nth-child(20) { min-width: 100px; } /* 잔금 */
+        .booking-table th:nth-child(21) { min-width: 100px; } /* 렌터카 */
+        .booking-table th:nth-child(22) { min-width: 100px; } /* 숙박 */
+        .booking-table th:nth-child(23) { min-width: 100px; } /* 기타 */
+        .booking-table th:nth-child(24) { min-width: 100px; } /* 출항비 */
+        .booking-table th:nth-child(25) { min-width: 100px; } /* 입항비 */
+        .booking-table th:nth-child(26) { min-width: 100px; } /* 독도비 */
+        .booking-table th:nth-child(27) { min-width: 100px; } /* 식당비 */
+        .booking-table th:nth-child(28) { min-width: 100px; } /* 행사비 */
+        .booking-table th:nth-child(29) { min-width: 100px; } /* 기타비 */
+        .booking-table th:nth-child(30) { min-width: 100px; } /* 환불 */
+        .booking-table th:nth-child(31) { min-width: 100px; } /* 총 정산비 */
+        .booking-table th:nth-child(32) { min-width: 100px; } /* 수익 */
+        .booking-table th:nth-child(33) { min-width: 80px; }  /* 작업 */
+
+        /* 테이블 컨테이너 스타일 조정 */
+        .table-container {
+            overflow-x: auto;
+            max-width: calc(100vw - 40px);  /* 좌우 여백 고려 */
+            margin: 0 auto;
+        }
+
+        /* 테이블 셀 내용이 넘칠 경우 처리 */
+        .booking-table td {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* 입력 필드 스타일 조정 */
+        .editable-cell input,
+        .editable-cell select {
+            width: 100%;
+            min-width: 100%;
+            box-sizing: border-box;
+        }
+
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <%- include('navbar', { currentPage: 'bookings' }) %>
+
+    <div class="main-container">
+        <!-- 알림 메시지 -->
+        <div id="alert" class="alert"></div>
+
+        <!-- 필터 섹션 -->
+        <div class="filters">
+            <select id="shipFilter" class="filter-input">
+                <option value="">모든 선박</option>
+                <% ships.forEach(function(ship) { %>
+                    <option value="<%= ship._id %>"><%= ship.name %></option>
+                <% }); %>
+            </select>
+            <input type="month" id="monthFilter" class="filter-input">
+            <input type="text" id="bookerFilter" class="filter-input" placeholder="예약자명 검색">
+            <button onclick="exportToExcel()" class="btn btn-primary">엑셀 저장</button>
+            <button onclick="addNewRow()" class="btn btn-success">행 추가</button>
+        </div>
+
+        <!-- 요약 정보 -->
+        <div class="summary-info">
+            <span class="total-profit">총 수익: <span id="totalProfitAmount">0</span>원</span>
+        </div>
+
+        <!-- 예약 테이블 -->
+        <div class="table-container">
+            <table class="booking-table">
+                <thead>
+                    <tr>
+                        <th>선박명</th>
+                        <th>명단</th>
+                        <th>계약일</th>
+                        <th>출항일</th>
+                        <th>입항일</th>
+                        <th>예약자명</th>
+                        <th>예약자명2</th>
+                        <th>연락처</th>
+                        <th>상품</th>
+                        <th>총 좌석</th>
+                        <th>이코노미</th>
+                        <th>비즈니스</th>
+                        <th>퍼스트</th>
+                        <th>독도관광 날짜</th>
+                        <th>독도관광 인원</th>
+                        <th>독도관광 시간</th>
+                        <th>상품내용</th>
+                        <th>총금액</th>
+                        <th>계약금</th>
+                        <th>잔금</th>
+                        <th>렌터카</th>
+                        <th>숙박</th>
+                        <th>기타</th>
+                        <th>출항비</th>
+                        <th>입항비</th>
+                        <th>독도비</th>
+                        <th>식당비</th>
+                        <th>행사비</th>
+                        <th>기타비</th>
+                        <th>환불</th>
+                        <th>총 정산비</th>
+                        <th>수익</th>
+                        <th>작업</th>
+                    </tr>
+                </thead>
+                <tbody id="bookingTableBody">
+                    <% bookings.forEach(function(booking) { %>
+                        <tr data-id="<%= booking._id %>">
+                            <td class="editable-cell">
+                                <select name="shipName">
+                                    <option value="">선택</option>
+                                    <% ships.forEach(function(ship) { %>
+                                        <option value="<%= ship._id %>" 
+                                            <%= booking.ship && booking.ship._id.toString() === ship._id.toString() ? 'selected' : '' %>>
+                                            <%= ship.name %>
+                                        </option>
+                                    <% }); %>
+                                </select>
+                            </td>
+                            <td class="editable-cell">
+                                <input type="text" name="listStatus" value="<%= booking.listStatus %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="date" name="contractDate" value="<%= booking.contractDate.toISOString().split('T')[0] %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="date" name="departureDate" value="<%= booking.departureDate.toISOString().split('T')[0] %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="date" name="arrivalDate" value="<%= booking.arrivalDate.toISOString().split('T')[0] %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="text" name="reservedBy" value="<%= booking.reservedBy %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="text" name="reservedBy2" value="<%= booking.reservedBy2 %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="text" name="contact" value="<%= booking.contact %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="text" name="product" value="<%= booking.product %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="number" name="totalSeats" value="<%= booking.totalSeats %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="number" name="economySeats" value="<%= booking.economySeats %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="number" name="businessSeats" value="<%= booking.businessSeats %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="number" name="firstSeats" value="<%= booking.firstSeats %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="date" name="dokdoTourDate" value="<%= booking.dokdoTourDate ? booking.dokdoTourDate.toISOString().split('T')[0] : '' %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="number" name="dokdoTourPeople" value="<%= booking.dokdoTourPeople %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="text" name="dokdoTourTime" value="<%= booking.dokdoTourTime %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="text" name="dokdoTourDetails" value="<%= booking.dokdoTourDetails %>">
+                            </td>
+                            <td class="amount-cell" data-field="totalPrice">
+                                <input type="text" name="totalPrice" value="<%= booking.totalPrice.toLocaleString() %>"
+                                    class="amount-input <%= booking.highlights?.totalPrice ? 'highlighted' : '' %>"
+                                    ondblclick="toggleHighlight(this.closest('td'))">
+                            </td>
+                            <td class="amount-cell" data-field="deposit">
+                                <input type="text" name="deposit" value="<%= booking.deposit.toLocaleString() %>"
+                                    class="amount-input <%= booking.highlights?.deposit ? 'highlighted' : '' %>"
+                                    ondblclick="toggleHighlight(this.closest('td'))">
+                            </td>
+                            <td class="amount-cell" data-field="balance">
+                                <input type="text" name="balance" value="<%= booking.balance.toLocaleString() %>"
+                                    class="amount-input <%= booking.highlights?.balance ? 'highlighted' : '' %>"
+                                    ondblclick="toggleHighlight(this.closest('td'))">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="text" name="rentalCar" value="<%= booking.rentalCar %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="text" name="accommodation" value="<%= booking.accommodation %>">
+                            </td>
+                            <td class="editable-cell">
+                                <input type="text" name="others" value="<%= booking.others %>">
+                            </td>
+                            <td class="amount-cell">
+                                <input type="text" name="departureFee" value="<%= booking.departureFee.toLocaleString() %>" class="amount-input">
+                            </td>
+                            <td class="amount-cell">
+                                <input type="text" name="arrivalFee" value="<%= booking.arrivalFee.toLocaleString() %>" class="amount-input">
+                            </td>
+                            <td class="amount-cell">
+                                <input type="text" name="dokdoFee" value="<%= booking.dokdoFee.toLocaleString() %>" class="amount-input">
+                            </td>
+                            <td class="amount-cell">
+                                <input type="text" name="restaurantFee" value="<%= booking.restaurantFee.toLocaleString() %>" class="amount-input">
+                            </td>
+                            <td class="amount-cell">
+                                <input type="text" name="eventFee" value="<%= booking.eventFee.toLocaleString() %>" class="amount-input">
+                            </td>
+                            <td class="amount-cell">
+                                <input type="text" name="otherFee" value="<%= booking.otherFee.toLocaleString() %>" class="amount-input">
+                            </td>
+                            <td class="amount-cell">
+                                <input type="text" name="refund" value="<%= booking.refund.toLocaleString() %>" class="amount-input">
+                            </td>
+                            <td class="amount-cell">
+                                <input type="text" name="totalSettlement" value="<%= booking.totalSettlement.toLocaleString() %>" class="amount-input" readonly>
+                            </td>
+                            <td class="amount-cell">
+                                <input type="text" name="profit" value="<%= booking.profit.toLocaleString() %>" class="amount-input" readonly>
+                            </td>
+                            <td>
+                                <button onclick="deleteBooking('<%= booking._id %>')" class="btn btn-danger">삭제</button>
+                            </td>
+                        </tr>
+                    <% }); %>
+                 </tbody>
+            </table>
+        </div>
+
+        <!-- 저장 버튼 -->
+        <button id="saveButton" class="save-button">
+            <span id="saveText">변경사항 저장</span>
+            <div id="saveSpinner" class="spinner"></div>
+        </button>
+    </div>
+
+    <script>
+        // 서버에서 전달된 선박 데이터를 JavaScript로 사용
+        window.availableShips = <%- JSON.stringify(ships) %>;
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.1/xlsx.full.min.js"></script>
+    <script src="/js/bookings.js"></script>
+</body>
+</html>

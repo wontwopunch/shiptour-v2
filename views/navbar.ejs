@@ -1,0 +1,171 @@
+<!-- navbar.ejs -->
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .navbar {
+            background-color: #1a237e;
+            padding: 0.5rem 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-logo {
+            color: white;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .nav-menu {
+            display: flex;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            gap: 1rem;
+        }
+
+        .nav-item {
+            position: relative;
+        }
+
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            display: block;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .logout-btn {
+            background-color: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-color: white;
+        }
+
+        /* 반응형 디자인 */
+        @media (max-width: 768px) {
+            .nav-menu {
+                gap: 0.5rem;
+            }
+
+            .nav-link {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .nav-logo {
+                display: none;
+            }
+
+            .nav-container {
+                justify-content: center;
+            }
+        }
+
+        /* 현재 페이지 표시를 위한 클래스 */
+        .current-page-indicator {
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: #fff;
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .nav-link.active .current-page-indicator {
+            transform: scaleX(1);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/ships" class="nav-logo">선박 예약 시스템</a>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="/ships" class="nav-link <%= locals.currentPage === 'ships' ? 'active' : '' %>">
+                        선박 등록
+                        <span class="current-page-indicator"></span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/bookings" class="nav-link <%= locals.currentPage === 'bookings' ? 'active' : '' %>">
+                        월별 예약
+                        <span class="current-page-indicator"></span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/status" class="nav-link <%= locals.currentPage === 'status' ? 'active' : '' %>">
+                        예약 현황
+                        <span class="current-page-indicator"></span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <form action="/logout" method="POST" style="margin: 0;">
+                        <button type="submit" class="logout-btn">로그아웃</button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <script>
+        // 현재 페이지 URL을 기반으로 active 클래스 설정
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.nav-link');
+
+            navLinks.forEach(link => {
+                if (link.getAttribute('href') === currentPath) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
+        // 로그아웃 확인
+        document.querySelector('.logout-btn').addEventListener('click', function(e) {
+            if (!confirm('로그아웃 하시겠습니까?')) {
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>예약 현황</title>
+    <style>
+        /* 메인 컨테이너 스타일 */
+        .main-container {
+            padding-top: 60px;
+            margin: 0 auto;
+            max-width: 1800px;
+            padding: 80px 20px 20px;
+        }
+
+        /* 필터 섹션 스타일 */
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .filter-input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        /* 테이블 스타일 */
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+        }
+
+        .status-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .status-table th,
+        .status-table td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: center;
+            position: relative;
+        }
+
+        .status-table th {
+            background-color: #f8f9fa;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            font-weight: 500;
+        }
+
+        /* 좌석 유형별 스타일 */
+        /* 포항출항 스타일 */
+        .departure-reserved {
+            background-color: #ffffff;
+        }
+
+        .departure-blocked {
+            background-color: #fff3cd;
+            transition: background-color 0.3s;
+        }
+
+        .departure-blocked:hover {
+            background-color: #ffe69c;
+        }
+
+        .departure-remaining {
+            background-color: #d4edda;
+        }
+
+        /* 울릉출항 스타일 */
+        .arrival-reserved {
+            background-color: #ffffff;
+        }
+
+        .arrival-blocked {
+            background-color: #fff3cd;
+            transition: background-color 0.3s;
+        }
+
+        .arrival-blocked:hover {
+            background-color: #ffe69c;
+        }
+
+        .arrival-remaining {
+            background-color: #d4edda;
+        }
+
+        /* 부족 좌석 표시 스타일 */
+        .seat-shortage {
+            color: #dc3545;
+            font-weight: bold;
+            animation: flash 2s infinite;
+        }
+
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* 툴팁 스타일 */
+        .seat-info {
+            position: relative;
+            cursor: help;
+        }
+
+        .seat-info:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px;
+            background-color: #333;
+            color: white;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            z-index: 1000;
+        }
+
+        /* 수정 가능한 셀 스타일 */
+        .editable-cell input {
+            width: 60px;
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+            background: transparent;
+        }
+
+        .editable-cell input:focus {
+            border-color: #1a73e8;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(26,115,232,0.2);
+        }
+
+        /* 저장 버튼 스타일 */
+        .save-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .save-button.show {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .save-button:hover {
+            background-color: #218838;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        /* 총 좌석 수 표시 */
+        .total-seats {
+            font-weight: bold;
+            color: #1a73e8;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background-color: #e8f0fe;
+            display: inline-block;
+            margin-left: 8px;
+        }
+
+        /* 범례 스타일 */
+        .legend {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        /* 알림 메시지 스타일 */
+        .alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            border-radius: 4px;
+            z-index: 1000;
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        #saveChanges {
+            display: block !important;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <%- include('navbar', { currentPage: 'status' }) %>
+
+    <div class="main-container">
+        <div id="alert" class="alert"></div>
+
+        <!-- 필터 섹션 -->
+        <div class="filters">
+            <select id="shipFilter" class="filter-input">
+                <option value="">모든 선박</option>
+                <% ships.forEach(function(ship) { %>
+                    <option value="<%= ship._id %>"><%= ship.name %></option>
+                <% }); %>
+            </select>
+            <input type="month" id="monthFilter" class="filter-input">
+            <button onclick="exportToExcel()" class="btn btn-primary">엑셀 저장</button>
+        </div>
+
+        <!-- 범례 -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ffffff;"></div>
+                <span>예약 좌석</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #fff3cd;"></div>
+                <span>블록 좌석</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #d4edda;"></div>
+                <span>잔여 좌석</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color seat-shortage">0</div>
+                <span>부족 좌석</span>
+            </div>
+        </div>
+
+        <!-- 좌석 현황 테이블 -->
+        <div class="table-container">
+            <table class="status-table">
+                <table class="status-table">
+                    <thead>
+                        <tr>
+                            <th rowspan="3">선박명</th>
+                            <th rowspan="3">날짜</th>
+                            <th colspan="9">포항출항</th>
+                            <th colspan="9">울릉출항</th>
+                        </tr>
+                        <tr>
+                            <!-- 포항출항 -->
+                            <th colspan="3">예약</th>
+                            <th colspan="3">블럭</th>
+                            <th colspan="3">잔여</th>
+                            <!-- 울릉출항 -->
+                            <th colspan="3">예약</th>
+                            <th colspan="3">블럭</th>
+                            <th colspan="3">잔여</th>
+                        </tr>
+                        <tr>
+                            <!-- 포항출항 예약 -->
+                            <th class="departure-reserved">이코</th>
+                            <th class="departure-reserved">비즈</th>
+                            <th class="departure-reserved">퍼스트</th>
+                            <!-- 포항출항 블럭 -->
+                            <th class="departure-blocked">이코</th>
+                            <th class="departure-blocked">비즈</th>
+                            <th class="departure-blocked">퍼스트</th>
+                            <!-- 포항출항 잔여 -->
+                            <th class="departure-remaining">이코</th>
+                            <th class="departure-remaining">비즈</th>
+                            <th class="departure-remaining">퍼스트</th>
+                            <!-- 울릉출항 예약 -->
+                            <th class="arrival-reserved">이코</th>
+                            <th class="arrival-reserved">비즈</th>
+                            <th class="arrival-reserved">퍼스트</th>
+                            <!-- 울릉출항 블럭 -->
+                            <th class="arrival-blocked">이코</th>
+                            <th class="arrival-blocked">비즈</th>
+                            <th class="arrival-blocked">퍼스트</th>
+                            <!-- 울릉출항 잔여 -->
+                            <th class="arrival-remaining">이코</th>
+                            <th class="arrival-remaining">비즈</th>
+                            <th class="arrival-remaining">퍼스트</th>
+                        </tr>
+                    </thead>
+                    <tbody id="statusTableBody">
+                        <% statuses.forEach(function(status) { %>
+                            <tr data-id="<%= status._id %>" data-ship-id="<%= status.ship._id %>">
+                                <td class="ship-name"><%= status.ship.name %></td>
+                                <td class="date"><%= new Date(status.date).toLocaleDateString() %></td>
+                                
+                                <!-- 포항출항 예약 -->
+                                <td class="departure-reserved seat-info" data-tooltip="총 <%= status.ship.departureSeats.economy %>석">
+                                    <%= status.departure.economyReserved %>
+                                </td>
+                                <td class="departure-reserved seat-info" data-tooltip="총 <%= status.ship.departureSeats.business %>석">
+                                    <%= status.departure.businessReserved %>
+                                </td>
+                                <td class="departure-reserved seat-info" data-tooltip="총 <%= status.ship.departureSeats.first %>석">
+                                    <%= status.departure.firstReserved %>
+                                </td>
+                                
+                                <!-- 포항출항 블럭 -->
+                                <td class="departure-blocked editable-cell">
+                                    <input type="number" value="<%= status.departure.economyBlocked %>" min="0"
+                                           onchange="updateSeatStatus(this)" data-type="departure" data-class="economy">
+                                </td>
+                                <td class="departure-blocked editable-cell">
+                                    <input type="number" value="<%= status.departure.businessBlocked %>" min="0"
+                                           onchange="updateSeatStatus(this)" data-type="departure" data-class="business">
+                                </td>
+                                <td class="departure-blocked editable-cell">
+                                    <input type="number" value="<%= status.departure.firstBlocked %>" min="0"
+                                           onchange="updateSeatStatus(this)" data-type="departure" data-class="first">
+                                </td>
+                                
+                                <!-- 포항출항 잔여 -->
+                                <td class="departure-remaining <%= status.departure.remainingSeats.economy < 0 ? 'seat-shortage' : '' %>">
+                                    <%= status.departure.remainingSeats.economy %>
+                                </td>
+                                <td class="departure-remaining <%= status.departure.remainingSeats.business < 0 ? 'seat-shortage' : '' %>">
+                                    <%= status.departure.remainingSeats.business %>
+                                </td>
+                                <td class="departure-remaining <%= status.departure.remainingSeats.first < 0 ? 'seat-shortage' : '' %>">
+                                    <%= status.departure.remainingSeats.first %>
+                                </td>
+                                
+                                <!-- 울릉출항 예약 -->
+                                <td class="arrival-reserved seat-info" data-tooltip="총 <%= status.ship.arrivalSeats.economy %>석">
+                                    <%= status.arrival.economyReserved %>
+                                </td>
+                                <td class="arrival-reserved seat-info" data-tooltip="총 <%= status.ship.arrivalSeats.business %>석">
+                                    <%= status.arrival.businessReserved %>
+                                </td>
+                                <td class="arrival-reserved seat-info" data-tooltip="총 <%= status.ship.arrivalSeats.first %>석">
+                                    <%= status.arrival.firstReserved %>
+                                </td>
+                                
+                                <!-- 울릉출항 블럭 -->
+                                <td class="arrival-blocked editable-cell">
+                                    <input type="number" value="<%= status.arrival.economyBlocked %>" min="0"
+                                           onchange="updateSeatStatus(this)" data-type="arrival" data-class="economy">
+                                </td>
+                                <td class="arrival-blocked editable-cell">
+                                    <input type="number" value="<%= status.arrival.businessBlocked %>" min="0"
+                                           onchange="updateSeatStatus(this)" data-type="arrival" data-class="business">
+                                </td>
+                                <td class="arrival-blocked editable-cell">
+                                    <input type="number" value="<%= status.arrival.firstBlocked %>" min="0"
+                                           onchange="updateSeatStatus(this)" data-type="arrival" data-class="first">
+                                </td>
+                                
+                                <!-- 울릉출항 잔여 -->
+                                <td class="arrival-remaining <%= status.arrival.remainingSeats.economy < 0 ? 'seat-shortage' : '' %>">
+                                    <%= status.arrival.remainingSeats.economy %>
+                                </td>
+                                <td class="arrival-remaining <%= status.arrival.remainingSeats.business < 0 ? 'seat-shortage' : '' %>">
+                                    <%= status.arrival.remainingSeats.business %>
+                                </td>
+                                <td class="arrival-remaining <%= status.arrival.remainingSeats.first < 0 ? 'seat-shortage' : '' %>">
+                                    <%= status.arrival.remainingSeats.first %>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+            </table>
+        </div>
+
+        <button id="saveChanges" class="save-button">
+            <span id="saveText">변경사항 저장</span>
+            <div id="saveSpinner" class="spinner"></div>
+        </button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="/js/status.js"></script>
+</body>
+</html>
