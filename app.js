@@ -8,7 +8,7 @@ const path = require('path');
 const app = express();
 
 // MongoDB 연결 설정
-const mongoURI = 'mongodb+srv://doadmin:36hIzmYG985472is@db-mongodb-nyc3-40348-1544110b.mongo.ondigitalocean.com/admin?retryWrites=true&w=majority';
+
 
 mongoose.connect(mongoURI, {
     useNewUrlParser: true,
