@@ -1,4 +1,3 @@
-// app.js
 const express = require('express');
 const mongoose = require('mongoose');
 const session = require('express-session');
@@ -8,10 +7,10 @@ const path = require('path');
 // Express 앱 생성
 const app = express();
 
-// MongoDB 연결
-require('dotenv').config();
+// MongoDB 연결 설정
+const mongoURI = 'mongodb+srv://doadmin:36hIzmYG985472is@db-mongodb-nyc3-40348-1544110b.mongo.ondigitalocean.com/admin?retryWrites=true&w=majority';
 
-mongoose.connect(process.env.MONGO_URI, {
+mongoose.connect(mongoURI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
 }).then(() => {
@@ -20,7 +19,6 @@ mongoose.connect(process.env.MONGO_URI, {
     console.error('MongoDB 연결 실패:', err);
     process.exit(1);
 });
-
 
 // 미들웨어 설정
 app.set('view engine', 'ejs');
@@ -34,12 +32,12 @@ app.use(session({
     secret: 'your-secret-key',
     resave: false,
     saveUninitialized: false,
-    store: MongoStore.create({ 
-        mongoUrl: process.env.MONGO_URL,
+    store: MongoStore.create({
+        mongoUrl: mongoURI,  // MongoDB 연결 URI를 여기서 직접 사용
         ttl: 24 * 60 * 60 // 24시간
     }),
     cookie: { 
-        secure: process.env.NODE_ENV === 'production',
+        secure: false, // 로컬 개발 환경에서는 false로 설정
         httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000 // 24시간
     }
