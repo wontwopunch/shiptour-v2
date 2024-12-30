@@ -6,10 +6,45 @@ function formatNumber(num) {
     return Math.floor(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
+function formatDate(date) {
+    return new Date(date).toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+}
+
+async function deleteBooking(id) {
+    if (!confirm('이 예약을 삭제하시겠습니까?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/bookings/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error('삭제 실패');
+        }
+
+        const row = document.querySelector(`tr[data-id="${id}"]`);
+        if (row) {
+            row.remove();
+        }
+        
+        showAlert('예약이 삭제되었습니다.', 'success');
+        updateTotalProfit();
+    } catch (error) {
+        console.error('삭제 중 오류:', error);
+        showAlert('삭제 중 오류가 발생했습니다.', 'error');
+    }
+}
+
 // 수정 표시 함수
 function markModified(element) {
     const row = element.closest('tr');
-    if (!row) return; // row가 없으면 함수 종료
+    if (!row) return;
 
     row.classList.add('modified');
 
@@ -23,7 +58,6 @@ function markModified(element) {
     }
 }
 
-
 // 하이라이트 토글
 function toggleHighlight(cell) {
     if (!cell) return;
@@ -34,7 +68,7 @@ function toggleHighlight(cell) {
         input.classList.toggle('highlighted');
     }
     
-    markModified(cell.closest('tr'));
+    markModified(cell);
 }
 
 // 날짜 변경 처리
@@ -46,102 +80,82 @@ function handleDateChange(input) {
 // 자동 계산 함수
 function calculateTotals(row) {
     try {
-        // 문자열에서 숫자 변환 함수
         const getAmount = (name) => {
             const input = row.querySelector(`[name="${name}"]`);
             if (!input) return 0;
             return parseInt(input.value.replace(/,/g, '')) || 0;
         };
 
-        // 값 설정 함수
         const setAmount = (name, value) => {
             const input = row.querySelector(`[name="${name}"]`);
             if (input) {
                 input.value = formatNumber(value);
             }
-            const span = row.querySelector(`[name="${name}"] + span`);
-            if (span) {
-                span.textContent = formatNumber(value);
-            }
         };
 
-        // 1. 총금액 - 계약금 = 잔금
+        // Calculate balance
         const totalAmount = getAmount('totalPrice');
         const deposit = getAmount('deposit');
         const balance = totalAmount - deposit;
         setAmount('balance', balance);
 
-        // 2. 모든 비용의 합 = 총 정산비
+        // Calculate total settlement
         const totalSettlement = [
-            'departureFee',  // 출항비
-            'arrivalFee',    // 입항비
-            'dokdoFee',      // 독도비
-            'restaurantFee', // 식당비
-            'eventFee',      // 행사비
-            'otherFee',      // 기타비
-            'refund'         // 환불
+            'departureFee', 'arrivalFee', 'dokdoFee',
+            'restaurantFee', 'eventFee', 'otherFee', 'refund'
         ].reduce((sum, fee) => sum + getAmount(fee), 0);
         setAmount('totalSettlement', totalSettlement);
 
-        // 3. 총금액 - 총 정산비 = 수익
+        // Calculate profit
         const profit = totalAmount - totalSettlement;
         setAmount('profit', profit);
 
-        // 4. 모든 행의 수익을 합산하여 상단에 표시
         updateTotalProfit();
-
-        // 변경사항 표시
         markModified(row);
-
     } catch (error) {
         console.error('계산 중 오류:', error);
     }
 }
+
 
 // 총 수익 업데이트
 function updateTotalProfit() {
     const totalProfitElement = document.getElementById('totalProfitAmount');
     if (!totalProfitElement) return;
 
-    // 모든 행의 수익(profit) input 값을 합산
     const totalProfit = Array.from(document.querySelectorAll('input[name="profit"]'))
         .reduce((sum, input) => {
-            // 콤마 제거하고 숫자로 변환
-            const value = parseInt(input.value.replace(/,/g, '')) || 0;
-            return sum + value;
+            return sum + (parseInt(input.value.replace(/,/g, '')) || 0);
         }, 0);
 
-    // 결과를 천단위 콤마 포맷팅하여 표시
     totalProfitElement.textContent = formatNumber(totalProfit);
 }
 
 // 행 이벤트 리스너 추가
 function attachRowEventListeners(row) {
-    // 금액 필드에 이벤트 추가
+    // Amount field handlers
     row.querySelectorAll('.amount-cell input').forEach(input => {
-        // 입력 중 숫자만 허용
         input.addEventListener('input', () => {
-            input.value = input.value.replace(/[^0-9,]/g, ''); // 숫자와 쉼표만 허용
-            calculateTotals(row); // 즉시 계산 반영
+            input.value = input.value.replace(/[^0-9,]/g, '');
+            calculateTotals(row);
         });
- 
-        // 포커스 아웃 시 천단위 콤마 및 계산
+
         input.addEventListener('blur', () => {
             const value = parseInt(input.value.replace(/,/g, '')) || 0;
             input.value = formatNumber(value);
             calculateTotals(row);
         });
     });
- 
-    // 날짜 필드에 이벤트 추가
+
+    // Date field handlers
     row.querySelectorAll('[name="departureDate"], [name="arrivalDate"]').forEach(input => {
         input.addEventListener('change', () => {
-            handleDateChange(input);
             markModified(input);
+            sortRows();
         });
     });
- 
-    // 일반 입력 필드에 이벤트 추가 (금액, 날짜 제외)
+
+    // Other field handlers
     row.querySelectorAll('input:not(.amount-cell input):not([name="departureDate"]):not([name="arrivalDate"]), select').forEach(input => {
         input.addEventListener('change', () => {
             markModified(input);
@@ -150,10 +164,9 @@ function attachRowEventListeners(row) {
             }
         });
     });
- 
-    // 초기 계산 수행
+
     calculateTotals(row);
- }
+}
 
 // 새 행에 대한 임시 ID 생성 함수
 function generateTempId() {
@@ -340,60 +353,45 @@ async function saveChanges() {
     const saveButton = document.getElementById('saveButton');
     const saveText = document.getElementById('saveText');
     const saveSpinner = document.getElementById('saveSpinner');
- 
+
     try {
         saveButton.disabled = true;
         saveText.textContent = '저장 중...';
         saveSpinner.style.display = 'inline-block';
- 
-        // 수정된 행 데이터 수집
+
         const bookings = Array.from(modifiedRows).map(id => {
             const row = document.querySelector(`tr[data-id="${id}"]`);
             const bookingData = { _id: id };
             
-            // 새 행인지 확인 (임시 ID 제거)
             if (id.startsWith('temp_')) {
                 delete bookingData._id;
             }
             
-            // 모든 입력 필드의 데이터 수집
             row.querySelectorAll('input, select').forEach(input => {
                 if (input.name === 'shipName') {
-                    bookingData.ship = input.value; // 선박 ID 저장
+                    bookingData.ship = input.value;
                 } else if (input.classList.contains('amount-input') || 
                           input.name.endsWith('Fee') || 
                           input.name === 'totalPrice' || 
                           input.name === 'deposit' || 
                           input.name === 'refund') {
-                    // 금액 필드는 쉼표 제거 및 숫자 변환
                     bookingData[input.name] = parseInt(input.value.replace(/,/g, '')) || 0;
                 } else if (input.type === 'number') {
-                    // 숫자 필드는 숫자로 변환
                     bookingData[input.name] = parseInt(input.value) || 0;
                 } else {
-                    // 나머지 필드는 문자열로 저장
                     bookingData[input.name] = input.value;
                 }
             });
- 
-            // 하이라이트 상태 저장
+
             bookingData.highlights = {
-                totalPrice: false,
-                deposit: false,
-                balance: false
+                totalPrice: row.querySelector('td[data-field="totalPrice"] input.highlighted') !== null,
+                deposit: row.querySelector('td[data-field="deposit"] input.highlighted') !== null,
+                balance: row.querySelector('td[data-field="balance"] input.highlighted') !== null
             };
- 
-            // 각 금액 필드의 하이라이트 상태 체크
-            ['totalPrice', 'deposit', 'balance'].forEach(field => {
-                const cell = row.querySelector(`td[data-field="${field}"]`);
-                if (cell && cell.querySelector('input.highlighted')) {
-                    bookingData.highlights[field] = true;
-                }
-            });
- 
+
             return bookingData;
         });
- 
+
         const response = await fetch('/bookings/batch-save', {
             method: 'POST',
             headers: {
@@ -401,14 +399,13 @@ async function saveChanges() {
             },
             body: JSON.stringify({ bookings })
         });
- 
+
         if (!response.ok) {
             throw new Error('저장 실패');
         }
- 
+
         const result = await response.json();
- 
-        // 임시 ID를 실제 ID로 업데이트
+
         if (result.bookings) {
             result.bookings.forEach(booking => {
                 const row = document.querySelector(`tr[data-id^="temp_"]`);
@@ -417,15 +414,13 @@ async function saveChanges() {
                 }
             });
         }
- 
+
         modifiedRows.clear();
         document.querySelectorAll('.modified').forEach(row => {
             row.classList.remove('modified');
         });
         
         showAlert('변경사항이 저장되었습니다.', 'success');
-        
-        // 저장 후 총 수익 업데이트
         updateTotalProfit();
     } catch (error) {
         console.error('저장 중 오류:', error);
@@ -436,18 +431,16 @@ async function saveChanges() {
         saveSpinner.style.display = 'none';
         saveButton.classList.remove('show');
     }
- }
+}
 
 
 // 엑셀로 데이터 내보내기 함수 정의
-// 엑셀 저장 함수
 function exportToExcel() {
-    const filteredData = getFilteredData();  // 필터링된 데이터를 가져옴
-    const wb = XLSX.utils.book_new();        // 새 엑셀 워크북 생성
-    const ws = XLSX.utils.json_to_sheet(filteredData); // 데이터를 시트로 변환
-
-    XLSX.utils.book_append_sheet(wb, ws, 'Bookings'); // 워크북에 시트 추가
-    XLSX.writeFile(wb, 'bookings.xlsx');  // 파일로 다운로드
+    const filteredData = getFilteredData();
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(filteredData);
+    XLSX.utils.book_append_sheet(wb, ws, 'Bookings');
+    XLSX.writeFile(wb, 'bookings.xlsx');
 }
 
 
@@ -588,11 +581,3 @@ document.addEventListener('DOMContentLoaded', function() {
     // 초기 총 수익 계산
     updateTotalProfit();
  });
-
-function formatDate(date) {
-    return new Date(date).toLocaleDateString('ko-KR', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-    });
-}
