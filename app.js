@@ -9,7 +9,9 @@ const path = require('path');
 const app = express();
 
 // MongoDB 연결
-mongoose.connect('mongodb+srv://doadmin:28k9ydU7j4350XJO@db-mongodb-nyc3-07858-e1cce249.mongo.ondigitalocean.com/admin?retryWrites=true&w=majority', {
+require('dotenv').config();
+
+mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
 }).then(() => {
@@ -18,6 +20,7 @@ mongoose.connect('mongodb+srv://doadmin:28k9ydU7j4350XJO@db-mongodb-nyc3-07858-e
     console.error('MongoDB 연결 실패:', err);
     process.exit(1);
 });
+
 
 // 미들웨어 설정
 app.set('view engine', 'ejs');
@@ -32,7 +35,7 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({ 
-        mongoUrl: 'mongodb://localhost:27017/ship_booking',
+        mongoUrl: process.env.MONGO_URL,
         ttl: 24 * 60 * 60 // 24시간
     }),
     cookie: { 
