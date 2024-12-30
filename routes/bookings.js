@@ -214,11 +214,10 @@ router.delete('/:id', authenticateUser, async (req, res) => {
             });
         }
 
-        // 예약 조회 시 세션 사용
+        // 예약 찾기
         const booking = await Booking.findById(id).session(session);
 
         if (!booking) {
-            await session.abortTransaction();
             return res.status(404).json({
                 success: false,
                 message: '예약을 찾을 수 없습니다.'
@@ -257,8 +256,7 @@ router.delete('/:id', authenticateUser, async (req, res) => {
         console.error('예약 삭제 중 오류:', error);
         res.status(500).json({
             success: false,
-            message: '예약 삭제 중 오류가 발생했습니다.',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            message: '예약 삭제 중 오류가 발생했습니다.'
         });
     } finally {
         if (session) {
