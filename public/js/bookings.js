@@ -273,24 +273,67 @@ function sortRows() {
 }
 
 // 예약 삭제
-async function deleteBooking(id) {
-    if (!confirm('이 예약을 삭제하시겠습니까?')) return;
+// 예약 삭제
+router.delete('/:id', authenticateUser, async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
     try {
-        const response = await fetch(`/bookings/${id}`, {
-            method: 'DELETE'
+        const { id } = req.params;
+
+        // 예약 찾기
+        const booking = await Booking.findById(id);
+        if (!booking) {
+            return res.status(404).json({
+                success: false,
+                message: '예약을 찾을 수 없습니다.'
+            });
+        }
+
+        // 예약과 관련된 좌석 상태 업데이트 (선택사항)
+        const SeatStatus = require('../models/SeatStatus');
+        await SeatStatus.updateSeatStatus(
+            booking.ship,
+            booking.departureDate,
+            'departure',
+            {
+                economy: -booking.economySeats,
+                business: -booking.businessSeats,
+                first: -booking.firstSeats
+            }
+        );
+
+        await SeatStatus.updateSeatStatus(
+            booking.ship,
+            booking.arrivalDate,
+            'arrival',
+            {
+                economy: -booking.economySeats,
+                business: -booking.businessSeats,
+                first: -booking.firstSeats
+            }
+        );
+
+        // 예약 삭제
+        await Booking.findByIdAndDelete(id);
+        await session.commitTransaction();
+
+        res.json({
+            success: true,
+            message: '예약이 삭제되었습니다.'
         });
 
-        if (!response.ok) throw new Error('삭제 실패');
-
-        const row = document.querySelector(`tr[data-id="${id}"]`);
-        row.remove();
-        showAlert('예약이 삭제되었습니다.', 'success');
-        updateTotalProfit();
     } catch (error) {
-        showAlert('삭제 중 오류가 발생했습니다.', 'error');
+        await session.abortTransaction();
+        console.error('예약 삭제 중 오류:', error);
+        res.status(500).json({
+            success: false,
+            message: '예약 삭제 중 오류가 발생했습니다.'
+        });
+    } finally {
+        session.endSession();
     }
-}
+});
 
 // 변경사항 저장
 async function saveChanges() {
