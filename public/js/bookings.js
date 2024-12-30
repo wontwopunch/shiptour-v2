@@ -1,17 +1,8 @@
-
 let modifiedRows = new Set();
 
 // 천단위 콤마 포맷팅
 function formatNumber(num) {
     return Math.floor(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
-
-function formatDate(date) {
-    return new Date(date).toLocaleDateString('ko-KR', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-    });
 }
 
 // 수정 표시 함수
@@ -50,6 +41,45 @@ function handleDateChange(input) {
     markModified(input);
     sortRows();
 }
+
+async function deleteBooking(id) {
+    if (!id) {
+        console.error('Invalid booking ID');
+        showAlert('유효하지 않은 예약 ID입니다.', 'error');
+        return;
+    }
+
+    if (!confirm('이 예약을 삭제하시겠습니까?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/bookings/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin' // Include cookies if using sessions
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || '삭제 실패');
+        }
+
+        const row = document.querySelector(`tr[data-id="${id}"]`);
+        if (row) {
+            row.remove();
+            updateTotalProfit(); // Update totals after removal
+            showAlert('예약이 삭제되었습니다.', 'success');
+        }
+    } catch (error) {
+        console.error('삭제 중 오류:', error);
+        showAlert('삭제 중 오류가 발생했습니다: ' + error.message, 'error');
+    }
+}
+
 
 // 자동 계산 함수
 function calculateTotals(row) {
@@ -445,44 +475,6 @@ async function saveChanges() {
         saveButton.classList.remove('show');
     }
  }
-
- async function deleteBooking(id) {
-    if (!id) {
-        console.error('Invalid booking ID');
-        showAlert('유효하지 않은 예약 ID입니다.', 'error');
-        return;
-    }
-
-    if (!confirm('이 예약을 삭제하시겠습니까?')) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`/bookings/${id}`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'same-origin' // Include cookies if using sessions
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.message || '삭제 실패');
-        }
-
-        const row = document.querySelector(`tr[data-id="${id}"]`);
-        if (row) {
-            row.remove();
-            updateTotalProfit(); // Update totals after removal
-            showAlert('예약이 삭제되었습니다.', 'success');
-        }
-    } catch (error) {
-        console.error('삭제 중 오류:', error);
-        showAlert('삭제 중 오류가 발생했습니다: ' + error.message, 'error');
-    }
-}
 
 
 // 엑셀로 데이터 내보내기 함수 정의
