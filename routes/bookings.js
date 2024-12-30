@@ -197,51 +197,73 @@ router.post('/batch-highlight', authenticateUser, async (req, res) => {
     }
 });
 
-// 예약 삭제
+// 예약 삭제 라우트
 router.delete('/:id', authenticateUser, async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
+    let session;
     try {
+        session = await mongoose.startSession();
+        session.startTransaction();
+
         const { id } = req.params;
-        const booking = await Booking.findById(id);
+
+        // MongoDB ID 유효성 검사
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: '유효하지 않은 예약 ID입니다.'
+            });
+        }
+
+        // 예약 조회 시 세션 사용
+        const booking = await Booking.findById(id).session(session);
 
         if (!booking) {
+            await session.abortTransaction();
             return res.status(404).json({
                 success: false,
                 message: '예약을 찾을 수 없습니다.'
             });
         }
 
-        await booking.remove({ session });
+        // 예약 삭제
+        await Booking.findByIdAndDelete(id).session(session);
 
         // 해당 선박의 다른 예약이 있는지 확인
-        const otherBookings = await Booking.exists({
+        const otherBookingsCount = await Booking.countDocuments({
             ship: booking.ship,
             _id: { $ne: id }
         }).session(session);
 
         // 다른 예약이 없으면 선박의 예약 상태 업데이트
-        if (!otherBookings) {
-            await Ship.findByIdAndUpdate(booking.ship, {
-                hasReservations: false
-            }).session(session);
+        if (otherBookingsCount === 0 && booking.ship) {
+            await Ship.findByIdAndUpdate(
+                booking.ship,
+                { hasReservations: false },
+                { session }
+            );
         }
 
         await session.commitTransaction();
+        
         res.json({
             success: true,
-            message: '예약이 삭제되었습니다.'
+            message: '예약이 성공적으로 삭제되었습니다.'
         });
+
     } catch (error) {
-        await session.abortTransaction();
-        console.error('예약 삭제 중 에러:', error);
+        if (session) {
+            await session.abortTransaction();
+        }
+        console.error('예약 삭제 중 오류:', error);
         res.status(500).json({
             success: false,
-            message: '예약 삭제 중 오류가 발생했습니다.'
+            message: '예약 삭제 중 오류가 발생했습니다.',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     } finally {
-        session.endSession();
+        if (session) {
+            session.endSession();
+        }
     }
 });
 
